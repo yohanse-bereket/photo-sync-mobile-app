@@ -1,0 +1,1 @@
+Add log for the images that failed to be synced so we can redo it sometimes later
