@@ -31,8 +31,8 @@ abstract class GalleryRemoteDataSource {
 }
 
 class GalleryRemoteDataSourceImpl implements GalleryRemoteDataSource {
-  final String baseUrl = "http://192.168.42.50:9090/api";
-  final String staticUrl = "http://192.168.42.50:9090";
+  final String baseUrl = "http://192.168.43.57:9090/api";
+  final String staticUrl = "http://192.168.43.57:9090";
   final String userId = "baf499f4-09b6-45b7-88d5-2b556fa2ebc9";
 
   @override

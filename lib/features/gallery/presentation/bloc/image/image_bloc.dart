@@ -21,21 +21,13 @@ class ImageBloc extends Bloc<ImageEvent, ImageState> {
     on<FetchImages>(_fetchImagesHandler);
   }
 
-  // void _uploadImageHandler(UploadImage event, Emitter<ImageState> emit) async {
-  //     final result = await uploadImageUsecase(UploadImageParams(image: event.image));
-  //     result.fold(
-  //       (failure) {},
-  //       (_) => add(FetchImages()),
-  //     );
-  //   }
-
   void _fetchImagesHandler(FetchImages event, Emitter<ImageState> emit) async {
     bool _isSameDay(DateTime a, DateTime b) {
       return a.year == b.year && a.month == b.month && a.day == b.day;
     }
 
     if (state is ImageLoadingState || state is ImageAddLoadingState) return;
-    
+
     List<GalleryEntity> previousGalleries = [];
     String? nextCursor;
     bool? hasMore;
@@ -54,15 +46,27 @@ class ImageBloc extends Bloc<ImageEvent, ImageState> {
       hasMore = (state as ImageErrorState).hasMore;
     }
 
-    // if (hasMore == false) return;
+    if (hasMore == false) {
+      print(
+        'No More images to load but triggered ----------------------------------------------------',
+      );
+      print(DateTime.now());
+      print("*" * 100);
+      return;
+    }
 
-    emit(
-      ImageAddLoadingState(
-        galleries: previousGalleries,
-        hasMore: hasMore,
-        nextCursor: nextCursor,
-      ),
-    );
+    if (previousGalleries.isEmpty) {
+      emit(ImageLoadingState());
+    } else {
+      emit(
+        ImageAddLoadingState(
+          galleries: previousGalleries,
+          hasMore: hasMore,
+          nextCursor: nextCursor,
+        ),
+      );
+    }
+
     print(hasMore);
     print("Fetching images with cursor: $nextCursor");
     final result = await fetchImagesUsecase(

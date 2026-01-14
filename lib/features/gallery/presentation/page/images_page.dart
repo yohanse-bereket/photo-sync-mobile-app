@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -163,7 +165,7 @@ class _ImagesPageState extends State<ImagesPage> {
                     ],
                   );
                 } 
-                else if (state is ImageAddLoadingState) {
+                else if (state is ImageLoadingState) {
                   // Skeleton for bottom loading indicator
                   return Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -182,6 +184,16 @@ class _ImagesPageState extends State<ImagesPage> {
                       itemBuilder: (_, __) => _imageSkeleton(),
                     ),
                   );
+                }
+                else if (state is ImageAddLoadingState) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                } else {
+                  return const SizedBox.shrink();
                 }
               },
             );
