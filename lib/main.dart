@@ -1,5 +1,6 @@
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:photo_sync_app/features/gallery/data/datasource/local_datasource.dart';
 import 'package:photo_sync_app/features/gallery/domain/usecases/sync_image.dart';
 import 'package:photo_sync_app/injection.dart';
 import 'package:photo_sync_app/photo_sync.dart';
@@ -21,6 +22,14 @@ void callbackDispatcher() {
         defaultColor: Colors.blue,
       ),
     ]);
+
+    // Check login before doing anything
+    final localDataSource = sl<GalleryLocalDataSource>();
+    final accessToken = await localDataSource.getAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      print("User is not logged in — skipping background sync");
+      return Future.value(true); // task completes without doing anything
+    }
 
     print("1" * 70);
     print("Background task triggered: $task");

@@ -5,7 +5,6 @@ import 'package:photo_sync_app/core/network/network.dart';
 import 'package:photo_sync_app/core/response/page_result.dart';
 import 'package:photo_sync_app/features/gallery/data/datasource/local_datasource.dart';
 import 'package:photo_sync_app/features/gallery/data/datasource/remote_datasource.dart';
-import 'package:photo_sync_app/features/gallery/data/models/thumbnail_model.dart';
 import 'package:photo_sync_app/features/gallery/domain/entities/photo_entity.dart';
 import 'package:photo_sync_app/features/gallery/domain/entities/thumbnail_entity.dart';
 import 'package:photo_sync_app/features/gallery/domain/repository/gallery.dart';
@@ -22,7 +21,9 @@ class GalleryRepositoryImpl implements GalleryRepository {
   });
 
   @override
-  Future<Either<Failure, PagedResult<List<ThumbnailEntity>>>> fetchImages(String? nextCursor) async {
+  Future<Either<Failure, PagedResult<List<ThumbnailEntity>>>> fetchImages(
+    String? nextCursor,
+  ) async {
     if (await networkInfo.isConnected) {
       try {
         final ans = await galleryRemoteDataSource.fetchImages(nextCursor);
@@ -36,72 +37,62 @@ class GalleryRepositoryImpl implements GalleryRepository {
   }
 
   @override
-  Future<Either<Failure, void>> uploadImage(AssetEntity image, void Function(double progress) onProgress) async {
+  Future<Either<Failure, void>> uploadImage(
+    AssetEntity image,
+    void Function(double progress) onProgress,
+  ) async {
     print("Inside repository upload image");
     if (await networkInfo.isConnected) {
       try {
         print("Before calling remote data source upload image");
-        final ans = await galleryRemoteDataSource.uploadImage(image, onProgress);
+        final ans = await galleryRemoteDataSource.uploadImage(
+          image,
+          onProgress,
+        );
         print("After calling remote data source upload image");
         return Right(ans);
       } catch (e) {
         print(e);
-      rethrow;
+        rethrow;
       }
     } else {
       return const Left(ServerFailure("Netwrok error."));
     }
   }
 
-
-@override
+  @override
   Future<List<AssetEntity>> getNewImages() async {
-    final lastSyncTime = await galleryLocalDataSource.getLastSyncTime();
-
-    // test purpose
-    DateTime now = DateTime.now();
-    DateTime twoHoursBefore = now.subtract(Duration(hours: 4));
-    // 2. Define the Date Filter: Only assets created AFTER the last sync time
     final filter = FilterOptionGroup(
-      createTimeCond: DateTimeCond(
-        min: twoHoursBefore,
-        max: DateTime.now(),
-      ),
-      orders: [const OrderOption(type: OrderOptionType.createDate, asc: true)],
+      orders: [const OrderOption(type: OrderOptionType.createDate, asc: false)],
     );
 
-    // 3. Get the list of asset paths, ensuring the 'All Photos' path is included
+    // 1. Get all asset paths of type image
     final pathList = await PhotoManager.getAssetPathList(
       type: RequestType.image,
-      filterOption: filter,
       hasAll: true,
+      filterOption: filter,
     );
-    print(pathList.length);
 
-    // 4. Find the main 'All Photos' path entity
-    final AssetPathEntity allPhotosPath;
-    try {
-      allPhotosPath = pathList.firstWhere(
-        (path) => path.isAll,
-        orElse: () {
-          print("3" * 70);
-          throw Exception("No 'All Photos' directory found.");
-        },
-      );
-    } catch (e) {
-      print("4" * 70);
-      return throw Exception("No 'All Photos' directory found.");
+    if (pathList.isEmpty) {
+      throw Exception("No image paths found");
     }
 
-    // 5. Fetch the new assets that match the time filter
-    final newAssets = await allPhotosPath.getAssetListPaged(
-      page: 0,
-      size: await allPhotosPath.assetCountAsync,
+    // 2. Find the main 'All Photos' path
+    final AssetPathEntity allPhotosPath = pathList.firstWhere(
+      (path) => path.isAll,
+      orElse: () => throw Exception("No 'All Photos' directory found."),
     );
 
-    return newAssets;
-  }
+    // 3. Fetch the most recent 30 assets
+    // Order by creation date descending (newest first)
 
+    final recentAssets = await allPhotosPath.getAssetListRange(
+      start: 0,
+      end: 30,
+    );
+
+    return recentAssets;
+  }
 
   @override
   Future<Either<Failure, PhotoEntity>> fetchImage(String photoID) async {
@@ -117,4 +108,49 @@ class GalleryRepositoryImpl implements GalleryRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> login(String email, String password) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final ans = galleryRemoteDataSource.login(email, password);
+        return Right(ans);
+      } catch (e) {
+        return const Left(ServerFailure("Server not working properly."));
+      }
+    } else {
+      return const Left(ServerFailure("Netwrok error."));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> register(
+    String email,
+    String password,
+    String name,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final ans = galleryRemoteDataSource.register(email, password, name);
+        return Right(ans);
+      } catch (e) {
+        return const Left(ServerFailure("Server not working properly."));
+      }
+    } else {
+      return const Left(ServerFailure("Netwrok error."));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> logout() async {
+    if (await networkInfo.isConnected) {
+      try {
+        final ans = galleryRemoteDataSource.logout();
+        return Right(ans);
+      } catch (e) {
+        return const Left(ServerFailure("Server not working properly."));
+      }
+    } else {
+      return const Left(ServerFailure("Netwrok error."));
+    }
+  }
 }

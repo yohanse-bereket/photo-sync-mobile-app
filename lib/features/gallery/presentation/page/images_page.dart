@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_sync_app/features/gallery/domain/entities/gallery_entity.dart';
 import 'package:photo_sync_app/features/gallery/presentation/bloc/image/image_bloc.dart';
+import 'package:photo_sync_app/features/gallery/presentation/bloc/logout/logout_bloc.dart';
 
 class ImagesPage extends StatefulWidget {
   const ImagesPage({super.key});
@@ -46,6 +47,15 @@ class _ImagesPageState extends State<ImagesPage> {
               context.read<ImageBloc>().add(FetchImages(cursor: null));
             },
           ),
+
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: "Logout",
+            onPressed: () {
+              // Dispatch logout event
+              context.read<LogoutBloc>().add(LogoutRequested());
+            },
+          ),
         ],
       ),
       body: BlocBuilder<ImageBloc, ImageState>(
@@ -62,7 +72,9 @@ class _ImagesPageState extends State<ImagesPage> {
                     // Skeleton date header
                     Container(
                       margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       height: 20,
                       width: 120,
                       color: Colors.grey.shade700,
@@ -75,11 +87,11 @@ class _ImagesPageState extends State<ImagesPage> {
                       itemCount: 6,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 4,
-                        crossAxisSpacing: 4,
-                        childAspectRatio: 0.6,
-                      ),
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                            childAspectRatio: 0.6,
+                          ),
                       itemBuilder: (_, __) => _imageSkeleton(),
                     ),
                   ],
@@ -87,7 +99,7 @@ class _ImagesPageState extends State<ImagesPage> {
               },
             );
           }
-
+      
           if (state is ImageSuccessState ||
               state is ImageAddLoadingState ||
               state is ImageErrorState) {
@@ -99,7 +111,7 @@ class _ImagesPageState extends State<ImagesPage> {
             } else if (state is ImageErrorState) {
               photosByDate = state.galleries ?? [];
             }
-
+      
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.only(top: 30),
@@ -109,7 +121,7 @@ class _ImagesPageState extends State<ImagesPage> {
                   final dayEntry = photosByDate[index];
                   final date = dayEntry.takenAtDay;
                   final images = dayEntry.photos;
-
+      
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -135,37 +147,35 @@ class _ImagesPageState extends State<ImagesPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 4,
-                          crossAxisSpacing: 4,
-                          childAspectRatio: 0.6,
-                        ),
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 4,
+                              crossAxisSpacing: 4,
+                              childAspectRatio: 0.6,
+                            ),
                         itemCount: images.length,
                         itemBuilder: (context, imgIndex) {
                           final photo = images[imgIndex];
-
+      
                           return GestureDetector(
                             onTap: () {
                               // 🔹 Navigate to /photo/:id
-                              context.push('/photo/${photo.id}');
+                              context.push('/images/${photo.id}');
                             },
                             child: CachedNetworkImage(
                               imageUrl: photo.thumbnailUrl,
                               fit: BoxFit.contain,
                               placeholder: (_, __) => _imageSkeleton(),
-                              errorWidget: (_, __, ___) =>
-                                  Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(Icons.error),
-                                  ),
+                              errorWidget: (_, __, ___) => Container(
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.error),
+                              ),
                             ),
                           );
                         },
                       ),
                     ],
                   );
-                } 
-                else if (state is ImageLoadingState) {
+                } else if (state is ImageLoadingState) {
                   // Skeleton for bottom loading indicator
                   return Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -176,21 +186,18 @@ class _ImagesPageState extends State<ImagesPage> {
                       itemCount: 8,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                          mainAxisSpacing: 4,
-                          crossAxisSpacing: 4,
-                          childAspectRatio: 0.6,
-                      ),
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                            childAspectRatio: 0.6,
+                          ),
                       itemBuilder: (_, __) => _imageSkeleton(),
                     ),
                   );
-                }
-                else if (state is ImageAddLoadingState) {
+                } else if (state is ImageAddLoadingState) {
                   return const Padding(
                     padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    child: Center(child: CircularProgressIndicator()),
                   );
                 } else {
                   return const SizedBox.shrink();
@@ -198,7 +205,7 @@ class _ImagesPageState extends State<ImagesPage> {
               },
             );
           }
-
+      
           return const Center(child: Text("No images found."));
         },
       ),
@@ -215,4 +222,3 @@ class _ImagesPageState extends State<ImagesPage> {
     );
   }
 }
-

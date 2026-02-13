@@ -21,23 +21,26 @@ abstract class GalleryRemoteDataSource {
     void Function(double progress) onProgress,
   );
   Future<PresignedUrlResponse> getPresignedUrl(
-    String userId,
     int size,
     String? mimeType,
     String hash,
     String takenAt,
   );
   Future<PhotoModel> fetchImage(String photoID);
+  Future<void> login(String email, String password);
+  Future<void> register(String email, String password, String name);
+  Future<void> logout();
 }
 
 class GalleryRemoteDataSourceImpl implements GalleryRemoteDataSource {
-  final String baseUrl = "http://192.168.43.57:9090/api";
-  final String staticUrl = "http://192.168.43.57:9090";
-  final String userId = "baf499f4-09b6-45b7-88d5-2b556fa2ebc9";
 
   @override
   final GalleryLocalDataSource galleryLocalDataSource;
+
+  @override
   final Dio dio;
+
+  @override
   final HashingService hashingService;
 
   GalleryRemoteDataSourceImpl({
@@ -46,140 +49,190 @@ class GalleryRemoteDataSourceImpl implements GalleryRemoteDataSource {
     required this.hashingService,
   });
 
+  // -------------------------------------------------------
+  // FETCH IMAGES
+  // -------------------------------------------------------
   @override
   Future<PagedResult<List<ThumbnailModel>>> fetchImages(
     String? nextCursor,
   ) async {
-    print(
-      "GalleryRemoteDataSourceImpl: fetchImages called with nextCursor: $nextCursor",
-    );
     try {
-      String url = "$baseUrl/photos?userId=$userId";
+      String url = "/photos";
       if (nextCursor != null) {
-        url = "$baseUrl/photos?userId=$userId&cursor=$nextCursor";
+        url = "$url&cursor=$nextCursor";
       }
-      print("Fetching images from URL: $url");
+
+      print("Fetching photos from: $url");
       final response = await dio.get(url);
-      print("Response status code: ${response.statusCode}");
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        print("Response data received: $responseData");
+      print("Response data: ${response.data}");
+      final responseData = response.data;
 
-        final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(
-          responseData['data'],
-        );
-        print("Response data: $data");
+      final List<Map<String, dynamic>> data =
+          List<Map<String, dynamic>>.from(responseData['data']);
 
-        final List<ThumbnailModel> photos = data
-            .map((photoJson) => ThumbnailModel.fromJson(photoJson))
-            .toList();
-        print("Fetched ${photos.length} photos from remote data source.");
+      final photos = data
+          .map((photoJson) => ThumbnailModel.fromJson(photoJson))
+          .toList();
 
-        return PagedResult<List<ThumbnailModel>>(
-          items: photos,
-          hasMore: responseData['hasMore'],
-          nextCursor: responseData['nextCursor'],
-        );
-      } else {
-        throw ServerException('Failed to fetch photos: ${response.statusCode}');
-      }
+      return PagedResult<List<ThumbnailModel>>(
+        items: photos,
+        hasMore: responseData['hasMore'],
+        nextCursor: responseData['nextCursor'],
+      );
     } on DioException catch (e) {
-      print("DioException occurred: ${e.message}");
-      throw ServerException('DioError: ${e.message}');
+      throw ServerException(e.message ?? "Failed to fetch photos");
     }
   }
 
+  // -------------------------------------------------------
+  // UPLOAD IMAGE
+  // -------------------------------------------------------
   @override
   Future<void> uploadImage(
     AssetEntity image,
     void Function(double progress) onProgress,
   ) async {
-    final data = await image.file.then((file) => file!.readAsBytes());
+    final file = await image.file;
+    if (file == null) {
+      throw ServerException("Image file is null");
+    }
+
+    final data = await file.readAsBytes();
     final size = data.lengthInBytes;
-    final takenAtDate = image.createDateTime;
-    final takenAt = takenAtDate.toUtc().toIso8601String();
+    final takenAt = image.createDateTime.toUtc().toIso8601String();
+    final hash = await hashingService.generateHash(data);
 
-    String hash = await hashingService.generateHash(data);
     try {
-      print('Requesting presigned URL for image upload...');
-
-      final PresignedUrlResponse presignedUrlResponse = await getPresignedUrl(
-        userId,
+      final presignedUrlResponse = await getPresignedUrl(
         size,
         image.mimeType,
         hash,
         takenAt,
       );
 
-      print('Uploading image to URL: ${presignedUrlResponse.url}');
       if (presignedUrlResponse.url.isEmpty) {
-        print("Presigned URL is empty, and the image is already uploaded.");
+        // Image already exists
         return;
       }
 
+      // Upload directly to S3 / MinIO
       await dio.put(
         presignedUrlResponse.url,
         data: data,
+        options: Options(
+          headers: {'Content-Type': image.mimeType},
+        ),
         onSendProgress: (sent, total) {
           onProgress(sent / total);
-          print('Upload progress: ${(sent / total * 100).toStringAsFixed(2)}%');
         },
       );
-      print('Image upload completed successfully.');
-      print("photoId: ${presignedUrlResponse.photoId}");
-      print("Confirming upload for photoId: ${presignedUrlResponse.photoId}");
-      await dio.post('$baseUrl/photos/${presignedUrlResponse.photoId}/confirm');
-    } on DioException catch (_) {
-      rethrow;
+
+      // Confirm upload
+      await dio.post(
+        '/photos/${presignedUrlResponse.photoId}/confirm',
+      );
+    } on DioException catch (e) {
+      throw ServerException(e.message ?? "Upload failed");
     }
   }
 
   @override
   Future<PresignedUrlResponse> getPresignedUrl(
-    String userId,
     int size,
     String? mimeType,
     String hash,
     String takenAt,
   ) async {
     final response = await dio.post(
-      '$baseUrl/photos/upload-url',
-      options: Options(headers: {'Content-Type': 'application/json'}),
-      data: jsonEncode({
-        'userId': userId,
+      '/photos/upload-url',
+      data: {
         'size': size,
         'mimeType': mimeType,
         'hash': hash,
         'takenAt': takenAt,
-      }),
+      },
     );
 
     return PresignedUrlResponse.fromJson(response.data);
   }
 
+  // -------------------------------------------------------
+  // FETCH SINGLE IMAGE
+  // -------------------------------------------------------
   @override
   Future<PhotoModel> fetchImage(String photoID) async {
-    print(
-      "GalleryRemoteDataSourceImpl: fetchImages called with nextCursor: $photoID",
-    );
     try {
-      String url = "$baseUrl/photos/$photoID/view";
-      print("Fetching images from URL: $url");
-      final response = await dio.get(url);
-      print("Response status code: ${response.statusCode}");
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        print("Response data received: $responseData");
+      final response = await dio.get(
+        "/photos/$photoID/view",
+      );
 
-        final PhotoModel photo = PhotoModel.fromJson(responseData);
-        print("Fetched photo from remote data source: ${photo.id}");
-        return photo;
-      } else {
-        throw ServerException('Failed to fetch photos: ${response.statusCode}');
-      }
+      return PhotoModel.fromJson(response.data);
     } on DioException catch (e) {
-      print("DioException occurred: ${e.message}");
-      throw ServerException('DioError: ${e.message}');
+      throw ServerException(e.message ?? "Failed to fetch photo");
+    }
+  }
+
+  // -------------------------------------------------------
+  // LOGIN
+  // -------------------------------------------------------
+  @override
+  Future<void> login(String email, String password) async {
+    try {
+      final response = await dio.post(
+        '/auth/login',
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
+
+      final accessToken = response.data['accessToken'];
+      final refreshToken = response.data['refreshToken'];
+
+      await galleryLocalDataSource.setAccessToken(accessToken);
+      await galleryLocalDataSource.setRefreshToken(refreshToken);
+    } on DioException catch (e) {
+      throw ServerException(e.message ?? "Login failed");
+    }
+  }
+
+  // -------------------------------------------------------
+  // REGISTER
+  // -------------------------------------------------------
+  @override
+  Future<void> register(String email, String password, String name) async {
+    try {
+      await dio.post(
+        '/users',
+        data: {
+          'email': email,
+          'password': password,
+          'name': name,
+        },
+      );
+    } on DioException catch (e) {
+      throw ServerException(e.message ?? "Registration failed");
+    }
+  }
+
+  // -------------------------------------------------------
+  // LOGOUT
+  // -------------------------------------------------------
+  @override
+  Future<void> logout() async {
+    try {
+      final refreshToken = await galleryLocalDataSource.getRefreshToken();
+
+      if (refreshToken != null) {
+        await dio.post(
+          '/auth/logout',
+          data: {'refreshToken': refreshToken},
+        );
+      }
+    } catch (_) {
+      // ignore error
+    } finally {
+      await galleryLocalDataSource.clearTokens();
     }
   }
 }
