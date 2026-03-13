@@ -59,11 +59,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await di.init();
   Workmanager().initialize(callbackDispatcher);
-  Workmanager().registerOneOffTask(
-    "photoSyncTaskImmediate",
-    "photoSyncTask",
-    // constraints: Constraints(networkType: NetworkType.unmetered),
-    // frequency: const Duration(hours: 4),
+  Workmanager().registerPeriodicTask(
+    "photoSyncTaskPeriodic", // unique name for the task
+    "photoSyncTask",         // task name as defined in callbackDispatcher
+    frequency: const Duration(hours: 4), // runs every 4 hours
+    initialDelay: const Duration(minutes: 5), // optional: delay before first run
+    constraints: Constraints(
+      networkType: NetworkType.connected, // only run if network is available
+      requiresBatteryNotLow: true,        // optional: skip if battery is low
+    ),
+    backoffPolicy: BackoffPolicy.linear, // retry strategy
+    backoffPolicyDelay: const Duration(minutes: 15), // retry delay
   );
   runApp(const MaterialApp(home: PhotoSyncApp()));
 }
