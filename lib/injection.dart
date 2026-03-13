@@ -14,6 +14,7 @@ import 'package:photo_sync_app/features/gallery/domain/services/hashing_service.
 import 'package:photo_sync_app/features/gallery/domain/usecases/fetch_image.dart';
 import 'package:photo_sync_app/features/gallery/domain/usecases/fetch_images.dart';
 import 'package:photo_sync_app/features/gallery/domain/usecases/login.dart';
+import 'package:photo_sync_app/features/gallery/domain/usecases/login_with_google.dart';
 import 'package:photo_sync_app/features/gallery/domain/usecases/logout.dart';
 import 'package:photo_sync_app/features/gallery/domain/usecases/register.dart';
 import 'package:photo_sync_app/features/gallery/domain/usecases/sync_image.dart';
@@ -40,7 +41,7 @@ Future<void> init() async {
   () => LogoutBloc(logoutUsecase: sl()),
 );
   sl.registerFactory(
-    () => LoginBloc(loginUsecase: sl()),
+    () => LoginBloc(loginUsecase: sl(), loginWithGoogleUsecase: sl()),
   );
   sl.registerFactory(
     () => RegisterBloc(registerUsecase: sl()),
@@ -56,6 +57,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LoginUsecase(sl()));
   sl.registerLazySingleton(() => LogoutUsecase(sl()));
   sl.registerLazySingleton(() => RegisterUsecase(sl()));
+  sl.registerLazySingleton(() => LoginWithGoogleUsecase(sl()));
 
   //Remote Data Source
   sl.registerLazySingleton<GalleryRemoteDataSource>(

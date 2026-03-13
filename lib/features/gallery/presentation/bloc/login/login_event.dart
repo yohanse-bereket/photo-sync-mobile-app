@@ -16,3 +16,12 @@ final class LoginRequested extends LoginEvent {
   @override
   List<Object> get props => [email, password];
 }
+
+final class LoginWithGoogleRequested extends LoginEvent {
+  final String idToken;
+
+  const LoginWithGoogleRequested({required this.idToken});
+
+  @override
+  List<Object> get props => [idToken];
+}

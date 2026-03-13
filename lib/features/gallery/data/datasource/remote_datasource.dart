@@ -28,6 +28,7 @@ abstract class GalleryRemoteDataSource {
   );
   Future<PhotoModel> fetchImage(String photoID);
   Future<void> login(String email, String password);
+  Future<void> loginWithGoogle(String idToken);
   Future<void> register(String email, String password, String name);
   Future<void> logout();
 }
@@ -233,6 +234,26 @@ class GalleryRemoteDataSourceImpl implements GalleryRemoteDataSource {
       // ignore error
     } finally {
       await galleryLocalDataSource.clearTokens();
+    }
+  }
+  
+  @override
+  Future<void> loginWithGoogle(String idToken) async {
+    try {
+      final response = await dio.post(
+        '/auth/google',
+        data: {
+          'id_token': idToken,
+        },
+      );
+
+      final accessToken = response.data['accessToken'];
+      final refreshToken = response.data['refreshToken'];
+
+      await galleryLocalDataSource.setAccessToken(accessToken);
+      await galleryLocalDataSource.setRefreshToken(refreshToken);
+    } on DioException catch (e) {
+      throw ServerException(e.message ?? "Login failed");
     }
   }
 }

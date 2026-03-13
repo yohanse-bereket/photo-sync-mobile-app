@@ -153,4 +153,18 @@ class GalleryRepositoryImpl implements GalleryRepository {
       return const Left(ServerFailure("Netwrok error."));
     }
   }
+  
+  @override
+  Future<Either<Failure, void>> loginWithGoogle(String idToken) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final ans = galleryRemoteDataSource.loginWithGoogle(idToken);
+        return Right(ans);
+      } catch (e) {
+        return const Left(ServerFailure("Server not working properly."));
+      }
+    } else {
+      return const Left(ServerFailure("Netwrok error."));
+    }
+  }
 }

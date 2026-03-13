@@ -6,7 +6,7 @@ import 'package:photo_sync_app/injection.dart';
 
 class DioClient {
   static Dio create({required GalleryLocalDataSource localDataSource}) {
-    final dio = Dio(BaseOptions(baseUrl: "http://192.168.42.50:9090/api"));
+    final dio = Dio(BaseOptions(baseUrl: "https://api.bereket.us/api"));
 
     final authInterceptor = AuthInterceptor(
       dio: dio,

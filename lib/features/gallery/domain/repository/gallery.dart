@@ -11,6 +11,7 @@ abstract class GalleryRepository {
   Future<List<AssetEntity>> getNewImages();
   Future<Either<Failure, PhotoEntity>> fetchImage(String photoID);
   Future<Either<Failure, void>> login(String email, String password);
+  Future<Either<Failure, void>> loginWithGoogle(String idToken);
   Future<Either<Failure, void>> register(String email, String password, String name);
   Future<Either<Failure, void>> logout();
 }

@@ -28,6 +28,15 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+    getByName("debug") {
+        keyAlias = "upload" // This must match exactly
+        storePassword = "12345678"
+        storeFile = file("upload-keystore.jks")
+        keyPassword = "12345678"
+    }
+}
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
